@@ -1,0 +1,9 @@
+[package]
+name = "rsauth_pwhash"
+version = "0.1.0"
+authors = ["Dan Skorupski <boardwalk@ersatsz.com>"]
+
+[dependencies]
+rsauth_common = { path = "../rsauth_common" }
+serde_json = "*"
+sodiumoxide = "*"

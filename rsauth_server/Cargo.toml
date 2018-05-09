@@ -1,0 +1,14 @@
+[package]
+name = "rsauth_server"
+version = "0.1.0"
+authors = ["Dan Skorupski <boardwalk@ersatsz.com>"]
+
+[dependencies]
+base64 = "*"
+futures = "0.1.*"
+hyper = "*"
+rsauth_common = { path = "../rsauth_common" }
+serde = "*"
+serde_derive = "*"
+serde_json = "*"
+sodiumoxide = "*"

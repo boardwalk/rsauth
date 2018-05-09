@@ -1,11 +1,9 @@
-#[macro_use]
-extern crate serde_derive;
-
 extern crate base64;
 extern crate futures;
 extern crate hyper;
-extern crate serde;
+extern crate rsauth_common;
 extern crate serde_json;
+extern crate serde;
 extern crate sodiumoxide;
 
 use futures::Future;
@@ -13,25 +11,11 @@ use hyper::StatusCode;
 use hyper::error::Error;
 use hyper::header::{Authorization, Basic, ContentLength, ContentType, Cookie, Header, Raw, Formatter};
 use hyper::server::{Http, Request, Response, Service, const_service};
-use std::collections::HashMap;
 use std::env;
 use std::fs::File;
 use sodiumoxide::crypto::secretbox::xsalsa20poly1305 as secretbox;
-
-#[derive(Deserialize)]
-struct AuthUser {
-    #[serde(rename = "passwordhash")] // TODO rename in json
-    passwordHash: String,
-    #[serde(rename = "secretkey")] // TODO rename in json
-    secretKey: Option<String>,
-    whitelist: Vec<String>,
-}
-
-#[derive(Deserialize)]
-struct AuthConfig {
-    domain: String,
-    users: HashMap<String, AuthUser>,
-}
+use sodiumoxide::crypto::pwhash::pwhash_verify;
+use rsauth_common::AuthConfig;
 
 #[derive(Clone)]
 pub struct WWWAuthenticate;
@@ -84,20 +68,47 @@ impl AuthService {
             None => return None,
         };
 
-        let val = match base64::decode(val) {
+        let _val = match base64::decode(val) {
             Ok(val) => val,
             Err(_) => return Some(self.make_bad_request("Bad base64 cookie value")),
         };
 
-        if val.len() <
-
-
-        //let val = secretbox::open(val,
-
         None // TODO
     }
 
-    fn handle_authorization(&self, _authorization: &Authorization<Basic>) -> Option<Response> {
+    fn handle_authorization(&self, authorization: &Authorization<Basic>) -> Option<Response> {
+        let credentials = match authorization.password {
+            Some(ref password) => password,
+            None => return Some(self.make_bad_request("Missing credentials")),
+        };
+
+        let user = match self.config.users.get(&authorization.username) {
+            Some(user) => user,
+            None => return Some(self.make_authenticate("No such user")),
+        };
+
+        let password = match user.secret_key {
+            Some(ref _secret_key) => {
+                let colon = match credentials.find(':') {
+                    Some(colon) => colon,
+                    None => return Some(self.make_authenticate("Missing TOTP code (use totp_code:password)")),
+                };
+
+                let _totp_code = &credentials[..colon];
+                // TODO check totp_code against secret_key
+
+                &credentials[colon + 1..]
+            }
+            None => credentials,
+        };
+
+        if !pwhash_verify(&user.password_hash.0, password.as_ref()) {
+            return Some(self.make_authenticate("Wrong password"));
+        }
+
+        // let hashed_password = match self.config
+
+        println!("password: {}", password);
         None // TODO
     }
 
