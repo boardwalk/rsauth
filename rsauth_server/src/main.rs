@@ -164,12 +164,12 @@ impl AuthService {
         // We can only get this far if the user exists
         let user = self.config.users.get(username).unwrap();
 
-        let (status, text) = if let Some(ref whitelist) = user.whitelist {
-            let uri = match req.headers().get::<OriginalURI>() {
-                Some(uri) => &uri.0,
-                None => return Self::make_bad_request("Missing Original-URI"),
-            };
+        let uri = match req.headers().get::<OriginalURI>() {
+            Some(uri) => &uri.0,
+            None => return Self::make_bad_request("Missing Original-URI"),
+        };
 
+        let (status, text) = if let Some(ref whitelist) = user.whitelist {
             if whitelist.iter().any(|patt| patt.0.is_match(uri)) {
                 (StatusCode::Ok, "Allowed, passed whitelist")
             } else {
