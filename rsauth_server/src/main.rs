@@ -24,7 +24,7 @@ use std::env;
 use std::fs::File;
 use std::time::{Duration, SystemTime};
 
-const AUTH_COOKIE_NAME: &'static str = "rsauth";
+const COOKIE_NAME: &'static str = "rsauth";
 
 #[derive(Serialize, Deserialize)]
 pub struct AuthCookie {
@@ -59,18 +59,18 @@ impl AuthService {
             }
         }
 
-        self.make_authenticate("Authentication required")
+        Self::make_authenticate("Authentication required")
     }
 
     fn handle_cookie(&self, cookie: &Cookie) -> Option<Response> {
-        let val = match cookie.get(AUTH_COOKIE_NAME) {
+        let val = match cookie.get(COOKIE_NAME) {
             Some(val) => val,
             None => return None,
         };
 
         let _val = match base64::decode(val) {
             Ok(val) => val,
-            Err(_) => return Some(self.make_bad_request("Bad base64 cookie value")),
+            Err(_) => return Some(Self::make_bad_request("Bad base64 cookie value")),
         };
 
         None // TODO
@@ -83,12 +83,12 @@ impl AuthService {
     ) -> Option<Response> {
         let credentials = match authorization.password {
             Some(ref password) => password,
-            None => return Some(self.make_bad_request("Missing credentials")),
+            None => return Some(Self::make_bad_request("Missing credentials")),
         };
 
         let user = match self.config.users.get(&authorization.username) {
             Some(user) => user,
-            None => return Some(self.make_authenticate("No such user")),
+            None => return Some(Self::make_authenticate("No such user")),
         };
 
         let password = match user.secret_key {
@@ -96,7 +96,7 @@ impl AuthService {
                 let colon = match credentials.find(':') {
                     Some(colon) => colon,
                     None => {
-                        return Some(self.make_authenticate(
+                        return Some(Self::make_authenticate(
                             "Missing TOTP code (use totp_code:password)",
                         ))
                     }
@@ -111,28 +111,28 @@ impl AuthService {
         };
 
         if !pwhash_verify(&user.password_hash.0, password.as_ref()) {
-            return Some(self.make_authenticate("Wrong password"));
+            return Some(Self::make_authenticate("Wrong password"));
         }
 
-        let auth_cookie = AuthCookie {
+        let cookie = AuthCookie {
             expires: SystemTime::now() + Duration::from_secs(7 * 24 * 60 * 60),
             username: authorization.username.clone(),
         };
 
-        let auth_cookie = match serde_json::to_string(&auth_cookie) {
-            Ok(auth_cookie) => auth_cookie,
-            Err(_) => return Some(self.make_server_error("Failed to serialize cookie")),
+        let cookie = match serde_json::to_string(&cookie) {
+            Ok(cookie) => cookie,
+            Err(_) => return Some(Self::make_server_error("Failed to serialize cookie")),
         };
 
         let nonce = secretbox::gen_nonce();
-        let mut auth_cookie = secretbox::seal(auth_cookie.as_ref(), &nonce, &self.key);
-        auth_cookie.extend_from_slice(nonce.as_ref());
+        let mut cookie = secretbox::seal(cookie.as_ref(), &nonce, &self.key);
+        cookie.extend_from_slice(nonce.as_ref());
 
-        let auth_cookie = base64::encode(&auth_cookie);
+        let cookie = base64::encode(&cookie);
 
         let set_cookie = SetCookie(vec![format!(
             "{}={}; Domain={}; Path=/; Secure; HttpOnly",
-            AUTH_COOKIE_NAME, auth_cookie, self.config.domain
+            COOKIE_NAME, cookie, self.config.domain
         )]);
 
         let mut headers = Headers::new();
@@ -141,7 +141,7 @@ impl AuthService {
         Some(self.authorize_request(req, &authorization.username, &headers))
     }
 
-    fn make_authenticate(&self, text: &'static str) -> Response {
+    fn make_authenticate(text: &'static str) -> Response {
         Response::new()
             .with_status(StatusCode::Unauthorized)
             .with_header(WWWAuthenticate)
@@ -150,7 +150,7 @@ impl AuthService {
             .with_body(text)
     }
 
-    fn make_bad_request(&self, text: &'static str) -> Response {
+    fn make_bad_request(text: &'static str) -> Response {
         Response::new()
             .with_status(StatusCode::BadRequest)
             .with_header(ContentLength(text.len() as u64))
@@ -158,7 +158,7 @@ impl AuthService {
             .with_body(text)
     }
 
-    fn make_server_error(&self, text: &'static str) -> Response {
+    fn make_server_error(text: &'static str) -> Response {
         Response::new()
             .with_status(StatusCode::InternalServerError)
             .with_header(ContentLength(text.len() as u64))
@@ -170,10 +170,22 @@ impl AuthService {
         let user = self.config.users.get(username).unwrap();
 
         let (status, text) = if let Some(ref whitelist) = user.whitelist {
-            let scheme = req.headers().get::<OriginalScheme>().unwrap();
-            let host = req.headers().get::<OriginalHost>().unwrap();
-            let uri = req.headers().get::<OriginalURI>().unwrap();
-            let full_uri = format!("{}://{}{}", scheme.0, host.0, uri.0);
+            let scheme = match req.headers().get::<OriginalScheme>() {
+                Some(scheme) => &scheme.0,
+                None => return Self::make_bad_request("Missing Original-Scheme header"),
+            };
+
+            let host = match req.headers().get::<OriginalHost>() {
+                Some(host) => &host.0,
+                None => return Self::make_bad_request("Missing Original-Host"),
+            };
+
+            let uri = match req.headers().get::<OriginalURI>() {
+                Some(uri) => &uri.0,
+                None => return Self::make_bad_request("Missing Original-URI"),
+            };
+
+            let full_uri = format!("{}://{}{}", scheme, host, uri);
 
             if whitelist.iter().any(|patt| patt.0.is_match(&full_uri)) {
                 (StatusCode::Ok, "Allowed, passed whitelist")
