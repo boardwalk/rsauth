@@ -151,7 +151,7 @@ impl AuthService {
 
         let cookie = base64::encode(&cookie);
         let cookie = format!(
-            "{}={}; Domain={}", //; Secure; HttpOnly",
+            "{}={}; Domain={}; Secure; HttpOnly",
             COOKIE_NAME, cookie, self.config.domain
         );
 
