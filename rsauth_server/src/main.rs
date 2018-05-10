@@ -48,7 +48,7 @@ impl AuthService {
 
     fn handle(&self, req: Request) -> Response {
         if let Some(cookie) = req.headers().get::<Cookie>() {
-            if let Some(resp) = self.handle_cookie(cookie) {
+            if let Some(resp) = self.handle_cookie(&req, cookie) {
                 return resp;
             }
         }
@@ -62,18 +62,42 @@ impl AuthService {
         Self::make_authenticate("Authentication required")
     }
 
-    fn handle_cookie(&self, cookie: &Cookie) -> Option<Response> {
+    fn handle_cookie(&self, req: &Request, cookie: &Cookie) -> Option<Response> {
         let val = match cookie.get(COOKIE_NAME) {
             Some(val) => val,
-            None => return None,
+            None => return None, // Our cookie not given
         };
 
-        let _val = match base64::decode(val) {
+        let val = match base64::decode(val) {
             Ok(val) => val,
-            Err(_) => return Some(Self::make_bad_request("Bad base64 cookie value")),
+            Err(_) => return None, // Ignore bad cookie
         };
 
-        None // TODO
+        if val.len() < secretbox::NONCEBYTES {
+            return None; // Ignore bad cookie
+        }
+
+        let (cookie, nonce) = val.split_at(val.len() - secretbox::NONCEBYTES);
+        let nonce = secretbox::Nonce::from_slice(nonce).unwrap();
+
+        let cookie = match secretbox::open(cookie, &nonce, &self.key) {
+            Ok(cookie) => cookie,
+            Err(_) => return None, // Ignore bad cookie
+        };
+
+        // We're going to unwrap() here because a failure here means our key has probably been
+        // compromised and we should crash the service
+        let cookie = String::from_utf8(cookie).unwrap();
+        let cookie: AuthCookie = serde_json::from_str(&cookie).unwrap();
+
+        if cookie.expires < SystemTime::now() {
+            return None; // Ignore expired cookie
+        }
+
+        let headers = Headers::new();
+        // Cookie-sourced auth doesn't set any extra headers
+
+        Some(self.authorize_request(req, &cookie.username, &headers))
     }
 
     fn handle_authorization(
@@ -131,7 +155,7 @@ impl AuthService {
         let cookie = base64::encode(&cookie);
 
         let set_cookie = SetCookie(vec![format!(
-            "{}={}; Domain={}; Path=/; Secure; HttpOnly",
+            "{}={}; Domain={}", //; Secure; HttpOnly",
             COOKIE_NAME, cookie, self.config.domain
         )]);
 
@@ -141,32 +165,8 @@ impl AuthService {
         Some(self.authorize_request(req, &authorization.username, &headers))
     }
 
-    fn make_authenticate(text: &'static str) -> Response {
-        Response::new()
-            .with_status(StatusCode::Unauthorized)
-            .with_header(WWWAuthenticate)
-            .with_header(ContentLength(text.len() as u64))
-            .with_header(ContentType::plaintext())
-            .with_body(text)
-    }
-
-    fn make_bad_request(text: &'static str) -> Response {
-        Response::new()
-            .with_status(StatusCode::BadRequest)
-            .with_header(ContentLength(text.len() as u64))
-            .with_header(ContentType::plaintext())
-            .with_body(text)
-    }
-
-    fn make_server_error(text: &'static str) -> Response {
-        Response::new()
-            .with_status(StatusCode::InternalServerError)
-            .with_header(ContentLength(text.len() as u64))
-            .with_header(ContentType::plaintext())
-            .with_body(text)
-    }
-
     fn authorize_request(&self, req: &Request, username: &str, headers: &Headers) -> Response {
+        // We can only get this far if the user exists
         let user = self.config.users.get(username).unwrap();
 
         let (status, text) = if let Some(ref whitelist) = user.whitelist {
@@ -204,6 +204,31 @@ impl AuthService {
         Response::new()
             .with_status(status)
             .with_headers(headers_copy)
+            .with_body(text)
+    }
+
+    fn make_authenticate(text: &'static str) -> Response {
+        Response::new()
+            .with_status(StatusCode::Unauthorized)
+            .with_header(WWWAuthenticate)
+            .with_header(ContentLength(text.len() as u64))
+            .with_header(ContentType::plaintext())
+            .with_body(text)
+    }
+
+    fn make_bad_request(text: &'static str) -> Response {
+        Response::new()
+            .with_status(StatusCode::BadRequest)
+            .with_header(ContentLength(text.len() as u64))
+            .with_header(ContentType::plaintext())
+            .with_body(text)
+    }
+
+    fn make_server_error(text: &'static str) -> Response {
+        Response::new()
+            .with_status(StatusCode::InternalServerError)
+            .with_header(ContentLength(text.len() as u64))
+            .with_header(ContentType::plaintext())
             .with_body(text)
     }
 }
