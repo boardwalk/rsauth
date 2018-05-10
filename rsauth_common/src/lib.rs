@@ -2,13 +2,15 @@
 extern crate serde_derive;
 
 extern crate base64;
+extern crate regex;
 extern crate serde;
 extern crate sodiumoxide;
 
-use std::collections::HashMap;
+use regex::Regex;
 use serde::de::{Deserialize, Deserializer};
 use serde::ser::{Serialize, Serializer};
 use sodiumoxide::crypto::pwhash::{HashedPassword};
+use std::collections::HashMap;
 
 pub struct PasswordHash(pub HashedPassword);
 
@@ -33,11 +35,24 @@ impl Serialize for PasswordHash {
     }
 }
 
+pub struct Pattern(pub Regex);
+
+impl<'de> Deserialize<'de> for Pattern {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        let r = Regex::new(&s).map_err(serde::de::Error::custom)?;
+        Ok(Pattern(r))
+    }
+}
+
 #[derive(Deserialize)]
 pub struct AuthUser {
     pub password_hash: PasswordHash,
     pub secret_key: Option<String>,
-    pub whitelist: Option<Vec<String>>,
+    pub whitelist: Option<Vec<Pattern>>,
 }
 
 #[derive(Deserialize)]

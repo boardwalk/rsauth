@@ -5,6 +5,7 @@ authors = ["Dan Skorupski <boardwalk@ersatsz.com>"]
 
 [dependencies]
 base64 = "*"
+regex = "*"
 serde = "*"
 serde_derive = "*"
 sodiumoxide = "*"
