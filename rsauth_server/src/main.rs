@@ -94,10 +94,7 @@ impl AuthService {
             return None; // Ignore expired cookie
         }
 
-        let headers = Headers::new();
-        // Cookie-sourced auth doesn't set any extra headers
-
-        Some(self.authorize_request(req, &cookie.username, &headers))
+        Some(self.authorize_request(req, &cookie.username, Headers::new()))
     }
 
     fn handle_authorization(
@@ -153,19 +150,17 @@ impl AuthService {
         cookie.extend_from_slice(nonce.as_ref());
 
         let cookie = base64::encode(&cookie);
-
-        let set_cookie = SetCookie(vec![format!(
+        let cookie = format!(
             "{}={}; Domain={}", //; Secure; HttpOnly",
             COOKIE_NAME, cookie, self.config.domain
-        )]);
+        );
 
         let mut headers = Headers::new();
-        headers.set(set_cookie);
-
-        Some(self.authorize_request(req, &authorization.username, &headers))
+        headers.set(SetCookie(vec![cookie]));
+        Some(self.authorize_request(req, &authorization.username, headers))
     }
 
-    fn authorize_request(&self, req: &Request, username: &str, headers: &Headers) -> Response {
+    fn authorize_request(&self, req: &Request, username: &str, mut headers: Headers) -> Response {
         // We can only get this far if the user exists
         let user = self.config.users.get(username).unwrap();
 
@@ -196,39 +191,30 @@ impl AuthService {
             (StatusCode::Ok, "Allowed, no whitelist")
         };
 
-        let mut headers_copy = headers.clone();
-        headers_copy.set(ContentLength(text.len() as u64));
-        headers_copy.set(ContentType::plaintext());
-        headers_copy.set(User(username.into()));
-
-        Response::new()
-            .with_status(status)
-            .with_headers(headers_copy)
-            .with_body(text)
+        headers.set(User(username.into()));
+        Self::make_response(status, text, headers)
     }
 
     fn make_authenticate(text: &'static str) -> Response {
-        Response::new()
-            .with_status(StatusCode::Unauthorized)
-            .with_header(WWWAuthenticate)
-            .with_header(ContentLength(text.len() as u64))
-            .with_header(ContentType::plaintext())
-            .with_body(text)
+        let mut headers = Headers::new();
+        headers.set(WWWAuthenticate);
+        Self::make_response(StatusCode::Unauthorized, text, headers)
     }
 
     fn make_bad_request(text: &'static str) -> Response {
-        Response::new()
-            .with_status(StatusCode::BadRequest)
-            .with_header(ContentLength(text.len() as u64))
-            .with_header(ContentType::plaintext())
-            .with_body(text)
+        Self::make_response(StatusCode::BadRequest, text, Headers::new())
     }
 
     fn make_server_error(text: &'static str) -> Response {
+        Self::make_response(StatusCode::InternalServerError, text, Headers::new())
+    }
+
+    fn make_response(status: StatusCode, text: &'static str, mut headers: Headers) -> Response {
+        headers.set(ContentLength(text.len() as u64));
+        headers.set(ContentType::plaintext());
         Response::new()
-            .with_status(StatusCode::InternalServerError)
-            .with_header(ContentLength(text.len() as u64))
-            .with_header(ContentType::plaintext())
+            .with_status(status)
+            .with_headers(headers)
             .with_body(text)
     }
 }
