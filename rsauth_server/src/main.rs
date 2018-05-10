@@ -5,16 +5,17 @@ extern crate base64;
 extern crate futures;
 extern crate hyper;
 extern crate rsauth_common;
-extern crate serde_json;
 extern crate serde;
+extern crate serde_json;
 extern crate sodiumoxide;
 
 mod headers;
 
 use futures::Future;
+use headers::*;
 use hyper::error::Error;
-use hyper::header::{Authorization, Basic, ContentLength, ContentType, Cookie, SetCookie, Headers};
-use hyper::server::{Http, Request, Response, Service, const_service};
+use hyper::header::{Authorization, Basic, ContentLength, ContentType, Cookie, Headers, SetCookie};
+use hyper::server::{const_service, Http, Request, Response, Service};
 use hyper::StatusCode;
 use rsauth_common::AuthConfig;
 use sodiumoxide::crypto::pwhash::pwhash_verify;
@@ -22,7 +23,6 @@ use sodiumoxide::crypto::secretbox::xsalsa20poly1305 as secretbox;
 use std::env;
 use std::fs::File;
 use std::time::{Duration, SystemTime};
-use headers::*;
 
 const AUTH_COOKIE_NAME: &'static str = "rsauth";
 
@@ -76,7 +76,11 @@ impl AuthService {
         None // TODO
     }
 
-    fn handle_authorization(&self, req: &Request, authorization: &Authorization<Basic>) -> Option<Response> {
+    fn handle_authorization(
+        &self,
+        req: &Request,
+        authorization: &Authorization<Basic>,
+    ) -> Option<Response> {
         let credentials = match authorization.password {
             Some(ref password) => password,
             None => return Some(self.make_bad_request("Missing credentials")),
@@ -91,7 +95,11 @@ impl AuthService {
             Some(ref _secret_key) => {
                 let colon = match credentials.find(':') {
                     Some(colon) => colon,
-                    None => return Some(self.make_authenticate("Missing TOTP code (use totp_code:password)")),
+                    None => {
+                        return Some(self.make_authenticate(
+                            "Missing TOTP code (use totp_code:password)",
+                        ))
+                    }
                 };
 
                 let _totp_code = &credentials[..colon];
@@ -122,9 +130,10 @@ impl AuthService {
 
         let auth_cookie = base64::encode(&auth_cookie);
 
-        let set_cookie = SetCookie(vec![
-            format!("{}={}; Domain={}; Path=/; Secure; HttpOnly", AUTH_COOKIE_NAME, auth_cookie, self.config.domain),
-        ]);
+        let set_cookie = SetCookie(vec![format!(
+            "{}={}; Domain={}; Path=/; Secure; HttpOnly",
+            AUTH_COOKIE_NAME, auth_cookie, self.config.domain
+        )]);
 
         let mut headers = Headers::new();
         headers.set(set_cookie);

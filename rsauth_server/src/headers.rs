@@ -1,5 +1,5 @@
 use hyper::error::Error;
-use hyper::header::{Header, Raw, Formatter};
+use hyper::header::{Formatter, Header, Raw};
 
 fn raw_to_str(raw: &Raw) -> Result<String, Error> {
     let scheme = raw.one().ok_or(Error::Header)?;
@@ -22,7 +22,6 @@ impl Header for WWWAuthenticate {
         f.fmt_line(&String::from("basic realm=Private"))
     }
 }
-
 
 #[derive(Clone)]
 pub struct User(pub String);

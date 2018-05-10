@@ -9,7 +9,7 @@ extern crate sodiumoxide;
 use regex::Regex;
 use serde::de::{Deserialize, Deserializer};
 use serde::ser::{Serialize, Serializer};
-use sodiumoxide::crypto::pwhash::{HashedPassword};
+use sodiumoxide::crypto::pwhash::HashedPassword;
 use std::collections::HashMap;
 
 pub struct PasswordHash(pub HashedPassword);

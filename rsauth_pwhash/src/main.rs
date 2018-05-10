@@ -4,7 +4,7 @@ extern crate sodiumoxide;
 
 use rsauth_common::PasswordHash;
 use serde_json::to_string;
-use sodiumoxide::crypto::pwhash::{pwhash, OPSLIMIT_INTERACTIVE, MEMLIMIT_INTERACTIVE};
+use sodiumoxide::crypto::pwhash::{pwhash, MEMLIMIT_INTERACTIVE, OPSLIMIT_INTERACTIVE};
 
 fn main() {
     let pw = pwhash(b"snazbottom", OPSLIMIT_INTERACTIVE, MEMLIMIT_INTERACTIVE).unwrap();
