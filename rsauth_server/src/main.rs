@@ -165,24 +165,12 @@ impl AuthService {
         let user = self.config.users.get(username).unwrap();
 
         let (status, text) = if let Some(ref whitelist) = user.whitelist {
-            let scheme = match req.headers().get::<OriginalScheme>() {
-                Some(scheme) => &scheme.0,
-                None => return Self::make_bad_request("Missing Original-Scheme header"),
-            };
-
-            let host = match req.headers().get::<OriginalHost>() {
-                Some(host) => &host.0,
-                None => return Self::make_bad_request("Missing Original-Host"),
-            };
-
             let uri = match req.headers().get::<OriginalURI>() {
                 Some(uri) => &uri.0,
                 None => return Self::make_bad_request("Missing Original-URI"),
             };
 
-            let full_uri = format!("{}://{}{}", scheme, host, uri);
-
-            if whitelist.iter().any(|patt| patt.0.is_match(&full_uri)) {
+            if whitelist.iter().any(|patt| patt.0.is_match(uri)) {
                 (StatusCode::Ok, "Allowed, passed whitelist")
             } else {
                 (StatusCode::Forbidden, "Forbidden, failed whitelist")

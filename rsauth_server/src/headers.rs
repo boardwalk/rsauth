@@ -41,40 +41,6 @@ impl Header for User {
 }
 
 #[derive(Clone)]
-pub struct OriginalScheme(pub String);
-
-impl Header for OriginalScheme {
-    fn header_name() -> &'static str {
-        "Original-Scheme"
-    }
-
-    fn parse_header(raw: &Raw) -> Result<Self, Error> {
-        raw_to_str(raw).map(OriginalScheme)
-    }
-
-    fn fmt_header(&self, _f: &mut Formatter) -> Result<(), ::std::fmt::Error> {
-        unimplemented!(); // We don't use the formatting half of this
-    }
-}
-
-#[derive(Clone)]
-pub struct OriginalHost(pub String);
-
-impl Header for OriginalHost {
-    fn header_name() -> &'static str {
-        "Original-Host"
-    }
-
-    fn parse_header(raw: &Raw) -> Result<Self, Error> {
-        raw_to_str(raw).map(OriginalHost)
-    }
-
-    fn fmt_header(&self, _f: &mut Formatter) -> Result<(), ::std::fmt::Error> {
-        unimplemented!(); // We don't use the formatting half of this
-    }
-}
-
-#[derive(Clone)]
 pub struct OriginalURI(pub String);
 
 impl Header for OriginalURI {
