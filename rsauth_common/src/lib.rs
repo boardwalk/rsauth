@@ -12,7 +12,14 @@ use serde::ser::{Serialize, Serializer};
 use sodiumoxide::crypto::pwhash::HashedPassword;
 use std::collections::HashMap;
 
-pub const ALPHABET: base32::Alphabet = base32::Alphabet::RFC4648 { padding: true };
+pub fn encode_base32(b: &[u8]) -> String {
+    base32::encode(base32::Alphabet::RFC4648 { padding: true }, b)
+}
+
+pub fn decode_base32(s: &str) -> Option<Vec<u8>> {
+    base32::decode(base32::Alphabet::RFC4648 { padding: true }, s)
+
+}
 
 pub struct PasswordHash(pub HashedPassword);
 
@@ -22,7 +29,7 @@ impl<'de> Deserialize<'de> for PasswordHash {
         D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        let b = base32::decode(ALPHABET, &s).ok_or_else(|| Error::custom("Invalid base32"))?;
+        let b = decode_base32(&s).ok_or_else(|| Error::custom("Invalid base32"))?;
         let p = HashedPassword::from_slice(&b).ok_or_else(|| Error::custom("Wrong length"))?;
         Ok(PasswordHash(p))
     }
@@ -33,7 +40,7 @@ impl Serialize for PasswordHash {
     where
         S: Serializer,
     {
-        base32::encode(ALPHABET, &self.0.as_ref()).serialize(serializer)
+        encode_base32(&self.0.as_ref()).serialize(serializer)
     }
 }
 
@@ -45,7 +52,7 @@ impl<'de> Deserialize<'de> for SecretKey {
         D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        let b = base32::decode(ALPHABET, &s).ok_or_else(|| Error::custom("Invalid base32"))?;
+        let b = decode_base32(&s).ok_or_else(|| Error::custom("Invalid base32"))?;
         Ok(SecretKey(b))
     }
 }

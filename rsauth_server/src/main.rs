@@ -3,7 +3,6 @@
 #[macro_use]
 extern crate serde_derive;
 
-extern crate base32;
 extern crate byteorder;
 extern crate futures;
 extern crate hyper;
@@ -22,7 +21,7 @@ use hyper::error::Error;
 use hyper::header::{Authorization, Basic, ContentLength, ContentType, Cookie, Headers, SetCookie};
 use hyper::server::{const_service, Http, Request, Response, Service};
 use hyper::StatusCode;
-use rsauth_common::AuthConfig;
+use rsauth_common::*;
 use sodiumoxide::crypto::pwhash::pwhash_verify;
 use sodiumoxide::crypto::secretbox::xsalsa20poly1305 as secretbox;
 use std::env;
@@ -73,7 +72,7 @@ impl AuthService {
             None => return None, // Our cookie not given
         };
 
-        let val = match base32::decode(rsauth_common::ALPHABET, val) {
+        let val = match decode_base32(val) {
             Some(val) => val,
             None => return None, // Ignore bad cookie
         };
@@ -153,7 +152,7 @@ impl AuthService {
         let mut cookie = secretbox::seal(cookie.as_ref(), &nonce, &self.key);
         cookie.extend_from_slice(nonce.as_ref());
 
-        let cookie = base32::encode(rsauth_common::ALPHABET, &cookie);
+        let cookie = encode_base32(&cookie);
         let cookie = format!(
             "{}={}; Domain={}; Secure; HttpOnly",
             COOKIE_NAME, cookie, self.config.domain
