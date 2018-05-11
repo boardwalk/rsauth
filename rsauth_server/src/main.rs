@@ -1,15 +1,20 @@
+#![feature(assoc_unix_epoch)]
+
 #[macro_use]
 extern crate serde_derive;
 
-extern crate base64;
+extern crate base32;
+extern crate byteorder;
 extern crate futures;
 extern crate hyper;
+extern crate libc;
 extern crate rsauth_common;
 extern crate serde;
 extern crate serde_json;
 extern crate sodiumoxide;
 
 mod headers;
+mod totp;
 
 use futures::Future;
 use headers::*;
@@ -24,7 +29,7 @@ use std::env;
 use std::fs::File;
 use std::time::{Duration, SystemTime};
 
-const COOKIE_NAME: &'static str = "rsauth";
+const COOKIE_NAME: &str = "rsauth";
 
 #[derive(Serialize, Deserialize)]
 pub struct AuthCookie {
@@ -46,7 +51,7 @@ impl AuthService {
         AuthService { config, key }
     }
 
-    fn handle(&self, req: Request) -> Response {
+    fn handle(&self, req: &Request) -> Response {
         if let Some(cookie) = req.headers().get::<Cookie>() {
             if let Some(resp) = self.handle_cookie(&req, cookie) {
                 return resp;
@@ -68,9 +73,9 @@ impl AuthService {
             None => return None, // Our cookie not given
         };
 
-        let val = match base64::decode(val) {
-            Ok(val) => val,
-            Err(_) => return None, // Ignore bad cookie
+        let val = match base32::decode(rsauth_common::ALPHABET, val) {
+            Some(val) => val,
+            None => return None, // Ignore bad cookie
         };
 
         if val.len() < secretbox::NONCEBYTES {
@@ -103,7 +108,7 @@ impl AuthService {
         authorization: &Authorization<Basic>,
     ) -> Option<Response> {
         let credentials = match authorization.password {
-            Some(ref password) => password,
+            Some(ref credentials) => credentials,
             None => return Some(Self::make_bad_request("Missing credentials")),
         };
 
@@ -113,20 +118,19 @@ impl AuthService {
         };
 
         let password = match user.secret_key {
-            Some(ref _secret_key) => {
-                let colon = match credentials.find(':') {
-                    Some(colon) => colon,
-                    None => {
-                        return Some(Self::make_authenticate(
-                            "Missing TOTP code (use totp_code:password)",
-                        ))
-                    }
-                };
+            Some(ref secret_key) => {
+                if credentials.len() < totp::TOTP_LEN {
+                    return Some(Self::make_authenticate("Password too short for TOTP code"));
+                }
 
-                let _totp_code = &credentials[..colon];
-                // TODO check totp_code against secret_key
+                let totp_code = &credentials[..totp::TOTP_LEN];
+                let expected_totp_code = totp::calc_totp(&secret_key.0, SystemTime::now());
 
-                &credentials[colon + 1..]
+                if totp_code != expected_totp_code {
+                    return Some(Self::make_authenticate("Wrong TOTP code"));
+                }
+
+                &credentials[totp::TOTP_LEN..]
             }
             None => credentials,
         };
@@ -149,7 +153,7 @@ impl AuthService {
         let mut cookie = secretbox::seal(cookie.as_ref(), &nonce, &self.key);
         cookie.extend_from_slice(nonce.as_ref());
 
-        let cookie = base64::encode(&cookie);
+        let cookie = base32::encode(rsauth_common::ALPHABET, &cookie);
         let cookie = format!(
             "{}={}; Domain={}; Secure; HttpOnly",
             COOKIE_NAME, cookie, self.config.domain
@@ -161,14 +165,12 @@ impl AuthService {
     }
 
     fn authorize_request(&self, req: &Request, username: &str, mut headers: Headers) -> Response {
-        // We can only get this far if the user exists
-        let user = self.config.users.get(username).unwrap();
-
         let uri = match req.headers().get::<OriginalURI>() {
             Some(uri) => &uri.0,
             None => return Self::make_bad_request("Missing Original-URI"),
         };
 
+        let user = &self.config.users[username];
         let (status, text) = if let Some(ref whitelist) = user.whitelist {
             if whitelist.iter().any(|patt| patt.0.is_match(uri)) {
                 (StatusCode::Ok, "Allowed, passed whitelist")
@@ -214,7 +216,7 @@ impl Service for AuthService {
     type Future = Box<Future<Item = Self::Response, Error = Error>>;
 
     fn call(&self, req: Self::Request) -> Self::Future {
-        Box::new(futures::finished(self.handle(req)))
+        Box::new(futures::finished(self.handle(&req)))
     }
 }
 

@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["Dan Skorupski <boardwalk@ersatsz.com>"]
 
 [dependencies]
-base64 = "*"
+base32 = "*"
 regex = "*"
 serde = "*"
 serde_derive = "*"
