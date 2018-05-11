@@ -5,5 +5,4 @@ authors = ["Dan Skorupski <boardwalk@ersatsz.com>"]
 
 [dependencies]
 rsauth_common = { path = "../rsauth_common" }
-serde_json = "*"
 sodiumoxide = "*"

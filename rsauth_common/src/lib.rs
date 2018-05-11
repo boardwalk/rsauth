@@ -8,7 +8,6 @@ extern crate sodiumoxide;
 
 use regex::Regex;
 use serde::de::{Deserialize, Deserializer, Error};
-use serde::ser::{Serialize, Serializer};
 use sodiumoxide::crypto::pwhash::HashedPassword;
 use std::collections::HashMap;
 
@@ -32,15 +31,6 @@ impl<'de> Deserialize<'de> for PasswordHash {
         let b = decode_base32(&s).ok_or_else(|| Error::custom("Invalid base32"))?;
         let p = HashedPassword::from_slice(&b).ok_or_else(|| Error::custom("Wrong length"))?;
         Ok(PasswordHash(p))
-    }
-}
-
-impl Serialize for PasswordHash {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        encode_base32(&self.0.as_ref()).serialize(serializer)
     }
 }
 

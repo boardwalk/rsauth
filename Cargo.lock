@@ -381,7 +381,6 @@ name = "rsauth_pwhash"
 version = "0.1.0"
 dependencies = [
  "rsauth_common 0.1.0",
- "serde_json 1.0.17 (registry+https://github.com/rust-lang/crates.io-index)",
  "sodiumoxide 0.0.16 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
