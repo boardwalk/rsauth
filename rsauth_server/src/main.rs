@@ -43,7 +43,7 @@ struct AuthService {
 
 impl AuthService {
     pub fn new() -> AuthService {
-        let path = format!("{}/.config/pyauth.json", env::var("HOME").unwrap());
+        let path = format!("{}/.config/rsauth.json", env::var("HOME").unwrap());
         let file = File::open(path).unwrap();
         let config = serde_json::from_reader(file).unwrap();
         let key = secretbox::gen_key();
