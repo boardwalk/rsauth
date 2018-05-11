@@ -154,7 +154,7 @@ impl AuthService {
 
         let cookie = encode_base32(&cookie);
         let cookie = format!(
-            "{}={}; Domain={}; Secure; HttpOnly",
+            "{}={}; Domain={}; Path=/; Expires=Fri, 13 May, 2050 00:00:00 GMT; Secure; HttpOnly",
             COOKIE_NAME, cookie, self.config.domain
         );
 
