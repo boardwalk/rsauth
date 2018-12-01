@@ -1,5 +1,3 @@
-#![feature(assoc_unix_epoch)]
-
 #[macro_use]
 extern crate serde_derive;
 
