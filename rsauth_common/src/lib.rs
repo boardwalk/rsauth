@@ -61,7 +61,7 @@ impl<'de> Deserialize<'de> for Pattern {
 
 #[derive(Deserialize)]
 pub struct AuthUser {
-    pub password_hash: PasswordHash,
+    pub password_hash: Option<PasswordHash>,
     pub secret_key: Option<SecretKey>,
     pub whitelist: Option<Vec<Pattern>>,
 }

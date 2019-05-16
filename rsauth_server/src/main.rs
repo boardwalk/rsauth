@@ -61,6 +61,10 @@ impl AuthService {
             }
         }
 
+        if let Some(resp) = self.handle_anonymous(&req) {
+            return resp;
+        }
+
         Self::make_authenticate("Authentication required")
     }
 
@@ -132,7 +136,12 @@ impl AuthService {
             None => credentials,
         };
 
-        if !pwhash_verify(&user.password_hash.0, password.as_ref()) {
+        let pw_hash = match user.password_hash {
+            Some(ref pw_hash) => pw_hash,
+            None => return Some(Self::make_authenticate("No password hash for this user")),
+        };
+
+        if !pwhash_verify(&pw_hash.0, password.as_ref()) {
             return Some(Self::make_authenticate("Wrong password"));
         }
 
@@ -159,6 +168,21 @@ impl AuthService {
         let mut headers = Headers::new();
         headers.set(SetCookie(vec![cookie]));
         Some(self.authorize_request(req, &authorization.username, headers))
+    }
+
+    fn handle_anonymous(&self, req: &Request) -> Option<Response> {
+        for (username, user) in &self.config.users {
+            if user.password_hash.is_some() {
+                continue;
+            }
+
+            let resp = self.authorize_request(req, username, Headers::new());
+            if resp.status() == StatusCode::Ok {
+                return Some(resp);
+            }
+        }
+
+        None
     }
 
     fn authorize_request(&self, req: &Request, username: &str, mut headers: Headers) -> Response {
