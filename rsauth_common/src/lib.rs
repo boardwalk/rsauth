@@ -17,7 +17,6 @@ pub fn encode_base32(b: &[u8]) -> String {
 
 pub fn decode_base32(s: &str) -> Option<Vec<u8>> {
     base32::decode(base32::Alphabet::RFC4648 { padding: true }, s)
-
 }
 
 pub struct PasswordHash(pub HashedPassword);

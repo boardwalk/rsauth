@@ -6,7 +6,7 @@ authors = ["Dan Skorupski <boardwalk@ersatsz.com>"]
 [dependencies]
 byteorder = "*"
 futures = "0.1.*"
-hyper = "*"
+hyper = "0.11.*"
 libc = "*"
 rsauth_common = { path = "../rsauth_common" }
 serde = "*"
