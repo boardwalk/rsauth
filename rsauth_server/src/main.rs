@@ -61,7 +61,7 @@ impl AuthService {
             }
         }
 
-        if let Some(resp) = self.handle_anonymous(&req) {
+        if let Some(resp) = self.handle_passwordless(&req) {
             return resp;
         }
 
@@ -170,10 +170,27 @@ impl AuthService {
         Some(self.authorize_request(req, &authorization.username, headers))
     }
 
-    fn handle_anonymous(&self, req: &Request) -> Option<Response> {
+    fn handle_passwordless(&self, req: &Request) -> Option<Response> {
+        let ip = match req.headers().get::<RealIP>() {
+            Some(RealIP(ip)) => ip,
+            None => return Some(Self::make_bad_request("Missing Real-IP")),
+        };
+
         for (username, user) in &self.config.users {
-            if user.password_hash.is_some() {
-                continue;
+            if let Some(allowed_ips) = &user.allowed_ips {
+                if allowed_ips.iter().find(|aip| *aip == ip).is_some() {
+                    // Good!
+                } else if user.password_hash.is_none() {
+                    // Good!
+                } else {
+                    continue; // Not good :(
+                }
+            } else {
+                if user.password_hash.is_none() {
+                    // Good!
+                } else {
+                    continue; // Not good :(
+                }
             }
 
             let resp = self.authorize_request(req, username, Headers::new());
@@ -187,7 +204,7 @@ impl AuthService {
 
     fn authorize_request(&self, req: &Request, username: &str, mut headers: Headers) -> Response {
         let uri = match req.headers().get::<OriginalURI>() {
-            Some(uri) => &uri.0,
+            Some(OriginalURI(uri)) => uri,
             None => return Self::make_bad_request("Missing Original-URI"),
         };
 
@@ -234,7 +251,7 @@ impl Service for AuthService {
     type Request = Request;
     type Response = Response;
     type Error = Error;
-    type Future = Box<Future<Item = Self::Response, Error = Error>>;
+    type Future = Box<dyn Future<Item = Self::Response, Error = Error>>;
 
     fn call(&self, req: Self::Request) -> Self::Future {
         Box::new(futures::finished(self.handle(&req)))

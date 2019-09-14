@@ -1,5 +1,6 @@
 use hyper::error::Error;
 use hyper::header::{Formatter, Header, Raw};
+use std::net::IpAddr;
 
 fn raw_to_str(raw: &Raw) -> Result<String, Error> {
     let scheme = raw.one().ok_or(Error::Header)?;
@@ -49,10 +50,29 @@ impl Header for OriginalURI {
     }
 
     fn parse_header(raw: &Raw) -> Result<Self, Error> {
-        raw_to_str(raw).map(OriginalURI)
+        raw_to_str(raw).map(Self)
     }
 
     fn fmt_header(&self, _f: &mut Formatter) -> Result<(), ::std::fmt::Error> {
         unimplemented!(); // We don't use the formatting half of this
     }
 }
+
+#[derive(Clone)]
+pub struct RealIP(pub IpAddr);
+
+impl Header for RealIP {
+    fn header_name() -> &'static str {
+        "Real-IP"
+    }
+
+    fn parse_header(raw: &Raw) -> Result<Self, Error> {
+        let s = raw_to_str(raw)?;
+        s.parse().map(Self).map_err(|_| Error::Header)
+    }
+
+    fn fmt_header(&self, _f: &mut Formatter) -> Result<(), ::std::fmt::Error> {
+        unimplemented!(); // We don't use the formatting half of this
+    }
+}
+
