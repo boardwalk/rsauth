@@ -1,2 +1,2 @@
 [workspace]
-members = ["rsauth_common", "rsauth_pwhash", "rsauth_server"]
+members = ["common", "pwhash", "server"]

@@ -8,7 +8,7 @@ byteorder = "*"
 futures = "0.1.*"
 hyper = "0.11.*"
 libc = "*"
-rsauth_common = { path = "../rsauth_common" }
+rsauth_common = { path = "../common" }
 serde = "*"
 serde_derive = "*"
 serde_json = "*"
