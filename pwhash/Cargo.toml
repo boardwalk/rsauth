@@ -6,4 +6,4 @@ edition = "2018"
 
 [dependencies]
 rsauth_common = { path = "../common" }
-sodiumoxide = "*"
+sodiumoxide = "0.2"
