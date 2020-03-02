@@ -2,14 +2,17 @@
 name = "rsauth_server"
 version = "0.1.0"
 authors = ["Dan Skorupski <boardwalk@ersatsz.com>"]
+edition = "2018"
 
 [dependencies]
+base64 = "0.11"
 byteorder = "*"
-futures = "0.1.*"
-hyper = "0.11.*"
+futures = "0.3.*"
+http = "*"
+hyper = "0.13.*"
 libc = "*"
 rsauth_common = { path = "../common" }
-serde = "*"
-serde_derive = "*"
+serde = { version = "*", features = ["derive"] }
 serde_json = "*"
 sodiumoxide = "*"
+tokio = { version = "0.2", features = ["rt-core", "rt-threaded", "macros"] }

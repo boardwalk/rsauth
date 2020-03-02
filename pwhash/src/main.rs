@@ -1,6 +1,3 @@
-extern crate rsauth_common;
-extern crate sodiumoxide;
-
 use rsauth_common::encode_base32;
 use sodiumoxide::crypto::pwhash::{pwhash, MEMLIMIT_INTERACTIVE, OPSLIMIT_INTERACTIVE};
 use std::io::{stdin, stdout, Read, Write};

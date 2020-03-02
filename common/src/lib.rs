@@ -1,13 +1,6 @@
-#[macro_use]
-extern crate serde_derive;
-
-extern crate base32;
-extern crate regex;
-extern crate serde;
-extern crate sodiumoxide;
-
 use regex::Regex;
-use serde::de::{Deserialize, Deserializer, Error};
+use serde::Deserialize;
+use serde::de::{Deserializer, Error};
 use sodiumoxide::crypto::pwhash::HashedPassword;
 use std::collections::HashMap;
 use std::net::IpAddr;
