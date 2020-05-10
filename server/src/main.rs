@@ -178,7 +178,7 @@ fn handle_passwordless(context: &Context, req: &Request<Body>) -> Option<Respons
         .iter()
         .filter(|(_, user)| {
             if let Some(allowed_ips) = &user.allowed_ips {
-                allowed_ips.iter().find(|aip| *aip == &ip).is_some()
+                allowed_ips.iter().find(|net| net.contains(ip)).is_some()
             } else {
                 false
             }
