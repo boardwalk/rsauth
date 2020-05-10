@@ -95,7 +95,7 @@ fn handle_cookie(context: &Context, req: &Request<Body>, cookie: &str) -> Option
 }
 
 fn handle_authorization(context: &Context, req: &Request<Body>, username: &str, credentials: &str) -> Option<Response<Body>> {
-    let user = match context.config.users.get(username) {
+    let user = match context.config.users.iter().find(|user| user.username == username) {
         Some(user) => user,
         None => return Some(make_authenticate("No such user")),
     };
@@ -174,20 +174,18 @@ fn handle_passwordless(context: &Context, req: &Request<Body>) -> Option<Respons
         None => return Some(make_bad_request("Missing Real-IP")),
     };
 
-    let username = context.config.users
+    let user = context.config.users
         .iter()
-        .filter(|(_, user)| {
+        .find(|user| {
             if let Some(allowed_ips) = &user.allowed_ips {
                 allowed_ips.iter().find(|net| net.contains(ip)).is_some()
             } else {
                 false
             }
-        })
-        .map(|(username, _)| username)
-        .next();
+        });
 
-    if let Some(username) = username {
-        Some(authorize_request(context, req, username, HeaderMap::new()))
+    if let Some(user) = user {
+        Some(authorize_request(context, req, &user.username, HeaderMap::new()))
     } else {
         None
     }
@@ -199,7 +197,7 @@ fn authorize_request(context: &Context, req: &Request<Body>, username: &str, mut
         None => return make_bad_request("Missing Original-URI"),
     };
 
-    let user = &context.config.users[username];
+    let user = context.config.users.iter().find(|user| user.username == username).unwrap();
     let (status, text) = if let Some(ref whitelist) = user.whitelist {
         if whitelist.iter().any(|patt| patt.0.is_match(uri)) {
             (StatusCode::OK, "Allowed, passed whitelist")

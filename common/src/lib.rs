@@ -3,7 +3,6 @@ use regex::Regex;
 use serde::Deserialize;
 use serde::de::{Deserializer, Error};
 use sodiumoxide::crypto::pwhash::HashedPassword;
-use std::collections::HashMap;
 
 pub fn encode_base32(b: &[u8]) -> String {
     base32::encode(base32::Alphabet::RFC4648 { padding: true }, b)
@@ -55,6 +54,7 @@ impl<'de> Deserialize<'de> for Pattern {
 
 #[derive(Deserialize)]
 pub struct AuthUser {
+    pub username: String,
     pub allowed_ips: Option<Vec<IpNetwork>>,
     pub password_hash: Option<PasswordHash>,
     pub secret_key: Option<SecretKey>,
@@ -64,5 +64,5 @@ pub struct AuthUser {
 #[derive(Deserialize)]
 pub struct AuthConfig {
     pub domain: String,
-    pub users: HashMap<String, AuthUser>,
+    pub users: Vec<AuthUser>,
 }
