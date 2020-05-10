@@ -38,6 +38,10 @@ impl Context {
 }
 
 fn handle(context: &Context, req: &Request<Body>) -> Response<Body> {
+    if let Some(resp) = handle_passwordless(context, req) {
+        return resp;
+    }
+
     if let Some(cookie) = get_header(req.headers(), header::COOKIE) {
         if let Some(resp) = handle_cookie(context, req, cookie) {
             return resp;
@@ -50,10 +54,6 @@ fn handle(context: &Context, req: &Request<Body>) -> Response<Body> {
                 return resp;
             }
         }
-    }
-
-    if let Some(resp) = handle_passwordless(context, req) {
-        return resp;
     }
 
     make_authenticate("Authentication required")
@@ -174,30 +174,23 @@ fn handle_passwordless(context: &Context, req: &Request<Body>) -> Option<Respons
         None => return Some(make_bad_request("Missing Real-IP")),
     };
 
-    for (username, user) in &context.config.users {
-        if let Some(allowed_ips) = &user.allowed_ips {
-            if allowed_ips.iter().find(|aip| *aip == &ip).is_some() {
-                // Good!
-            } else if user.password_hash.is_none() {
-                // Good!
+    let username = context.config.users
+        .iter()
+        .filter(|(_, user)| {
+            if let Some(allowed_ips) = &user.allowed_ips {
+                allowed_ips.iter().find(|aip| *aip == &ip).is_some()
             } else {
-                continue; // Not good :(
+                false
             }
-        } else {
-            if user.password_hash.is_none() {
-                // Good!
-            } else {
-                continue; // Not good :(
-            }
-        }
+        })
+        .map(|(username, _)| username)
+        .next();
 
-        let resp = authorize_request(context, req, username, HeaderMap::new());
-        if resp.status() == StatusCode::OK {
-            return Some(resp);
-        }
+    if let Some(username) = username {
+        Some(authorize_request(context, req, username, HeaderMap::new()))
+    } else {
+        None
     }
-
-    None
 }
 
 fn authorize_request(context: &Context, req: &Request<Body>, username: &str, mut headers: HeaderMap<HeaderValue>) -> Response<Body> {
